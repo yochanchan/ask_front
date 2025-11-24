@@ -75,6 +75,17 @@ export default function AdminUsersPage() {
     grade: "",
     class_name: "",
   });
+  const [localForm, setLocalForm] = useState({
+    role: "teacher",
+    full_name: "",
+    full_name_kana: "",
+    date_of_birth: "",
+    gender: "unknown",
+    email: "",
+    school_person_id: "",
+    login_id: "",
+    password: "",
+  });
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<BulkResult | null>(null);
@@ -147,6 +158,7 @@ export default function AdminUsersPage() {
     const token = await ensureAccessToken();
     if (!token) {
       router.replace("/login");
+      setBusy(false);
       return;
     }
     const payload = {
@@ -170,6 +182,56 @@ export default function AdminUsersPage() {
     } catch (err: any) {
       console.error(err);
       setError(err.message ?? "登録に失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleCreateLocal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+    setError(null);
+    if (localForm.password.length < 4) {
+      setError("パスワードは4文字以上で入力してください");
+      return;
+    }
+    setBusy(true);
+    const token = await ensureAccessToken();
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+    const payload = {
+      ...localForm,
+      school_person_id: localForm.school_person_id || null,
+      date_of_birth: localForm.date_of_birth || null,
+      full_name_kana: localForm.full_name_kana || null,
+    };
+    try {
+      await apiFetch(
+        "/admin/users/local",
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+        },
+        token
+      );
+      setMessage("登録しました");
+      setLocalForm({
+        role: "teacher",
+        full_name: "",
+        full_name_kana: "",
+        date_of_birth: "",
+        gender: "unknown",
+        email: "",
+        school_person_id: "",
+        login_id: "",
+        password: "",
+      });
+      await loadList(1);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message ?? "登録に失敗しました");
     } finally {
       setBusy(false);
     }
@@ -449,9 +511,8 @@ export default function AdminUsersPage() {
                     <td className="px-3 py-2">{u.email}</td>
                     <td className="px-3 py-2">
                       <span
-                        className={`mr-2 rounded-full px-2 py-1 text-xs ${
-                          u.is_active ? "bg-green-100 text-green-700" : "bg-slate-200 text-slate-700"
-                        }`}
+                        className={`mr-2 rounded-full px-2 py-1 text-xs ${u.is_active ? "bg-green-100 text-green-700" : "bg-slate-200 text-slate-700"
+                          }`}
                       >
                         {u.is_active ? "有効" : "無効"}
                       </span>
@@ -510,7 +571,7 @@ export default function AdminUsersPage() {
 
         <section className="mt-8 grid gap-6 lg:grid-cols-2">
           <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-slate-900">新規ユーザー登録</h3>
+            <h3 className="text-lg font-semibold text-slate-900">新規ユーザー登録（Google認証）</h3>
             <form className="mt-4 space-y-3" onSubmit={handleCreate}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
@@ -649,10 +710,139 @@ export default function AdminUsersPage() {
           </div>
 
           <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-slate-900">単体削除</h3>
-            <p className="mt-2 text-sm text-slate-600">
-              一覧の各行にある「削除」ボタンから論理削除できます。
-            </p>
+            <h3 className="text-lg font-semibold text-slate-900">新規ユーザー登録（パスワード認証）</h3>
+            <form className="mt-4 space-y-3" onSubmit={handleCreateLocal}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm text-slate-700">ロール</label>
+                  <select
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    value={localForm.role}
+                    onChange={(e) =>
+                      setLocalForm((p) => ({ ...p, role: e.target.value }))
+                    }
+                    required
+                  >
+                    <option value="teacher">teacher</option>
+                    <option value="admin">admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm text-slate-700">性別 *</label>
+                  <select
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    value={localForm.gender}
+                    onChange={(e) =>
+                      setLocalForm((p) => ({ ...p, gender: e.target.value }))
+                    }
+                    required
+                  >
+                    <option value="unknown">unknown</option>
+                    <option value="male">male</option>
+                    <option value="female">female</option>
+                    <option value="other">other</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm text-slate-700">氏名（漢字） *</label>
+                  <input
+                    type="text"
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    required
+                    value={localForm.full_name}
+                    onChange={(e) =>
+                      setLocalForm((p) => ({ ...p, full_name: e.target.value }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-slate-700">氏名（カナ） *</label>
+                  <input
+                    type="text"
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    required
+                    value={localForm.full_name_kana}
+                    onChange={(e) =>
+                      setLocalForm((p) => ({ ...p, full_name_kana: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm text-slate-700">生年月日 *</label>
+                  <input
+                    type="date"
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    required
+                    value={localForm.date_of_birth}
+                    onChange={(e) =>
+                      setLocalForm((p) => ({ ...p, date_of_birth: e.target.value }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-slate-700">メールアドレス *</label>
+                  <input
+                    type="email"
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    required
+                    value={localForm.email}
+                    onChange={(e) =>
+                      setLocalForm((p) => ({ ...p, email: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm text-slate-700">ログインID *</label>
+                  <input
+                    type="text"
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    required
+                    value={localForm.login_id}
+                    onChange={(e) =>
+                      setLocalForm((p) => ({ ...p, login_id: e.target.value }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-slate-700">パスワード（4桁以上） *</label>
+                  <input
+                    type="password"
+                    minLength={4}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    required
+                    value={localForm.password}
+                    onChange={(e) =>
+                      setLocalForm((p) => ({ ...p, password: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm text-slate-700">学内ID（6桁）</label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  value={localForm.school_person_id}
+                  onChange={(e) =>
+                    setLocalForm((p) => ({ ...p, school_person_id: e.target.value }))
+                  }
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={busy}
+                className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+              >
+                登録
+              </button>
+            </form>
           </div>
         </section>
 
