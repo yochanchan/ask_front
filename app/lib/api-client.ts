@@ -1,5 +1,5 @@
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_ENDPOINT ?? "http://localhost:8000";
 
 type FetchOptions = RequestInit & { skipAuthHeader?: boolean };
 
